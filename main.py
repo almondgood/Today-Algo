@@ -1,6 +1,7 @@
 import requests
 import json
 import datetime
+from pathlib import Path
 
 
 level_dict = { 0:'Unrated',
@@ -37,7 +38,7 @@ level_dict = { 0:'Unrated',
 
 API_HOST = "https://solved.ac/api/v3"
 
-def send_api(path, method, body=None):
+def send_api(path, method="GET", body=None):
     
     url = API_HOST + path
     headers = {'Content-Type': 'application/json', 'charset': 'UTF-8', 'Accept': '*/*'}
@@ -46,18 +47,18 @@ def send_api(path, method, body=None):
         if method == 'GET':
             response = requests.get(url, headers=headers)
         elif method == 'POST':
-            response = requests.post(url, headers=headers, data=json.dumps(body, ensure_ascii=False, indent="\t"))
-        
+            response = requests.post(url, headers=headers, data=json.dumps(body, ensure_ascii=False, indent="\t"))     
+        response.raise_for_status()
+
+
         json_data = json.loads(response.text)
-        #print("response status %r" % response.status_code)
-        #print_json("response text ", json_data)
         
-        return response.status_code, json_data
+        return json_data
     except Exception as ex:
         print(ex)
   
   
-def get_problem_stats(path, user, method):
+def send_api_with_query(path, user, method="GET"):
     query = "?handle=" + user
     path = path + query
     
@@ -67,7 +68,7 @@ def print_json(prompt, json_data):
     print(prompt + json.dumps(json_data, indent=3, ensure_ascii=False))
     
 
-def parse(json_data):
+def get_solved(json_data):
     user_data = {}
     for item in json_data:
         level = level_dict[item['level']]
@@ -77,33 +78,103 @@ def parse(json_data):
     print(user_data)
     return user_data
 
+
 def validate_user_data(user_data):
     return 1
+
+def get_rating(user):
+    json_data = send_api_with_query("/user/show", user)
+    return json_data['rating']
+    
     
 def save_user_file(user, json_data):
-    currunt_date = datetime.date.today().strftime("%y%m%d")
-    filename = f"{user}-{currunt_date}.txt"    
-    user_data = parse(json_data)
-    validate_user_data(user_data)
+    today = (datetime.date.today() - datetime.timedelta(1)).strftime('%y%m%d')
+    filename = f"{user}.json"    
+    path = f"data/{today}/{filename}"
+    user_data = get_solved(json_data)
+    rating = get_rating(user)
+    
 
     content = {
         "user": f"{user}",
-        "date": f"{currunt_date}",
+        "date": f"{today}",
+        "rating": f"{rating}",
         "solved": user_data
                }
 
+    content = json.dumps(content)
+
+    new_directory = Path(f"data/{today}")
+    new_directory.mkdir(parents=True, exist_ok=True)
     try:
-        with open(filename, 'w') as file:
+        with open(path, 'w') as file:
             file.write(content)
         print(f"'{filename}' is successfully saved.")
     except Exception as e:
         print(f"Failed to save '{filename}'.")
-        print("The cause is {e}.")
+        print(f"The cause is {e}.")
+        
+
+def read_file(filename, mode):
+    if filename.endswith(".txt"):
+        data = []
+        with open(filename, mode) as f:
+            line = f.readline()
+            while line:
+                data.append(line.strip())
+                line = f.readline()
+    elif filename.endswith(".json"):
+        data = []
+        with open(filename, mode) as f:
+            line = f.readline()
+            while line:
+                data.append(line.strip())
+                line = f.readline()
+            
+    return data
+
+def compare(today, yesterday):
+    diff_solved = {}
+    print(today)
+    # for t_solved, y_solved in zip(today['solved'], yesterday['solved']):
+    #     print(t_solved, y_solved)
+    
+    return today, yesterday
+
+def main():
+    users = read_file("users.txt", 'r')
+    
+    # for user in users:
+    #     json_data = send_api_with_query("/user/problem_stats", user, "GET")
+    #     save_user_file(user, json_data)
+        
+
+    for user in users:
+        today = datetime.date.today() - datetime.timedelta(1)
+        yesterday = today - datetime.timedelta(1)
+        today,yesterday = (today.strftime('%y%m%d'), yesterday.strftime('%y%m%d'))
+        
+        filename = f"{user}.json"    
+        path_today = f"data/{today}/{filename}"
+        path_yesterday = f"data/{yesterday}/{filename}"
+        
+        
+   
+        content_today = read_file(path_today, 'r')   
+        content_yesterday = read_file(path_yesterday, 'r')
+
+            
         
             
             
+        
+        result = compare(content_today, content_yesterday)
+        
+        
+        
 
+        
 
-response_code, json_data = get_problem_stats("/user/problem_stats", "jwt2719", "GET")
+        
 
-parse(json_data)
+main()
