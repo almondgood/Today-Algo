@@ -2,9 +2,11 @@ import requests
 import json
 import datetime
 from pathlib import Path
+import os
 
 
-level_dict = { 0:'Unrated',
+level_dict = { 
+        0:'Unrated',
         1:'Bronze V',
         2:'Bronze IV',
         3:'Bronze III',
@@ -34,7 +36,8 @@ level_dict = { 0:'Unrated',
         27:'Ruby IV',
         28:'Ruby III',
         29:'Ruby II',
-        30:'Ruby I'}
+        30:'Ruby I'
+    }
 
 API_HOST = "https://solved.ac/api/v3"
 
@@ -92,15 +95,15 @@ def save_user_file(user, json_data):
     filename = f"{user}.json"    
     path = f"data/{today}/{filename}"
     user_data = get_solved(json_data)
-    rating = get_rating(user)
+    rating = int(get_rating(user))
     
-
-    content = {
+    
+    content = [{
         "user": f"{user}",
         "date": f"{today}",
-        "rating": f"{rating}",
+        "rating": rating,
         "solved": user_data
-               }
+               }]
 
     content = json.dumps(content)
 
@@ -124,25 +127,32 @@ def read_file(filename, mode):
                 data.append(line.strip())
                 line = f.readline()
     elif filename.endswith(".json"):
-        data = []
+        data = ""
         with open(filename, mode) as f:
             line = f.readline()
             while line:
-                data.append(line.strip())
+                data += line.strip()
                 line = f.readline()
             
     return data
 
 def compare(today, yesterday):
-    diff_solved = {}
-    print(today)
-    # for t_solved, y_solved in zip(today['solved'], yesterday['solved']):
-    #     print(t_solved, y_solved)
+    diff = { 
+        "rating" : 0,
+        "solved" : {}
+        }
     
-    return today, yesterday
+    diff['rating'] = today['rating'] - yesterday['rating']
+    for t, y in zip(today["solved"].items(), yesterday["solved"].items()):
+        if t[1] - y[1] > 0:
+            diff["solved"][t[0]] = t[1] - y[1]
+        
+    return diff
+
 
 def main():
     users = read_file("users.txt", 'r')
+
     
     # for user in users:
     #     json_data = send_api_with_query("/user/problem_stats", user, "GET")
@@ -152,29 +162,41 @@ def main():
     for user in users:
         today = datetime.date.today() - datetime.timedelta(1)
         yesterday = today - datetime.timedelta(1)
-        today,yesterday = (today.strftime('%y%m%d'), yesterday.strftime('%y%m%d'))
+        today, yesterday = (today.strftime('%y%m%d'), yesterday.strftime('%y%m%d'))
         
         filename = f"{user}.json"    
         path_today = f"data/{today}/{filename}"
         path_yesterday = f"data/{yesterday}/{filename}"
         
         
-   
-        content_today = read_file(path_today, 'r')   
-        content_yesterday = read_file(path_yesterday, 'r')
-
-            
-        
-            
-            
-        
-        result = compare(content_today, content_yesterday)
-        
-        
+        if not os.path.isfile(path_yesterday):
+            break
         
 
-        
+        content_today = json.loads(read_file(path_today, 'r'))
+        content_yesterday = json.loads(read_file(path_yesterday, 'r'))
 
+        
+        
+        if content_yesterday is not None:
+            diff = compare(content_today, content_yesterday)
+            rating = diff["rating"]
+            
+            prompt = [f"{user}님이\n", f"를 해결하셨으며, 점수가 {rating}점 올랐습니다."]
+            for rank, count in diff["solved"].items():
+                prompt.insert(1, f"{rank} 문제 {count}개\n")
+                
+            print(''.join(prompt))
+                
+            
+                
+                
+            
+            
+            
+            
+            
+# save_user_file("jwt2719", send_api_with_query("/user/problem_stats", "jwt2719"))
         
 
 main()
