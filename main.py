@@ -186,7 +186,7 @@ def main():
             rating = diff["rating"]
             
             if diff["diff"]:
-                prompt = [f"{user}님이\n", f"를 해결하셨으며\n점수가 {content_today["rating"]}점에서 {content_yesterday["rating"]}점\n총 {rating}점 올랐습니다."]
+                prompt = [f"{user}님이\n", f"를 해결하셨으며\n점수가 {content_today['rating']}점에서 {content_yesterday['rating']}점\n총 {rating}점 올랐습니다."]
                 for rank, count in diff["solved"].items():
                     prompt.insert(1, f"{rank} 문제 {count}개\n")
             else:
