@@ -4,7 +4,7 @@ import datetime
 from pathlib import Path
 import os
 
-
+############### api
 level_dict = { 
         0:'Unrated',
         1:'Bronze V',
@@ -91,19 +91,19 @@ def get_rating(user):
     
     
 def save_user_file(user, json_data):
-    today = (datetime.date.today() - datetime.timedelta(1)).strftime('%y%m%d')
+    today = datetime.date.today().strftime('%y%m%d')
     filename = f"{user}.json"    
     path = f"data/{today}/{filename}"
     user_data = get_solved(json_data)
     rating = int(get_rating(user))
     
     
-    content = [{
+    content = {
         "user": f"{user}",
         "date": f"{today}",
         "rating": rating,
         "solved": user_data
-               }]
+               }
 
     content = json.dumps(content)
 
@@ -138,65 +138,72 @@ def read_file(filename, mode):
 
 def compare(today, yesterday):
     diff = { 
+        "diff": False,
         "rating" : 0,
         "solved" : {}
         }
     
+
     diff['rating'] = today['rating'] - yesterday['rating']
     for t, y in zip(today["solved"].items(), yesterday["solved"].items()):
         if t[1] - y[1] > 0:
             diff["solved"][t[0]] = t[1] - y[1]
+            diff["diff"] = True
         
     return diff
+######################### api
 
 
 def main():
     users = read_file("users.txt", 'r')
 
-    
-    # for user in users:
-    #     json_data = send_api_with_query("/user/problem_stats", user, "GET")
-    #     save_user_file(user, json_data)
-        
-
     for user in users:
-        today = datetime.date.today() - datetime.timedelta(1)
+        today = datetime.date.today()
         yesterday = today - datetime.timedelta(1)
         today, yesterday = (today.strftime('%y%m%d'), yesterday.strftime('%y%m%d'))
         
         filename = f"{user}.json"    
-        path_today = f"data/{today}/{filename}"
-        path_yesterday = f"data/{yesterday}/{filename}"
-        
-        
-        if not os.path.isfile(path_yesterday):
+        path_today = os.path.abspath(f"data/{today}/{filename}")
+        path_yesterday = os.path.abspath(f"data/{yesterday}/{filename}")
+
+        if not os.path.exists(path_today):
+            for user in users:
+                json_data = send_api_with_query("/user/problem_stats", user, "GET")
+                save_user_file(user, json_data)
+                
+        if not os.path.exists(path_yesterday):
             break
         
 
         content_today = json.loads(read_file(path_today, 'r'))
         content_yesterday = json.loads(read_file(path_yesterday, 'r'))
 
-        
+
         
         if content_yesterday is not None:
+
             diff = compare(content_today, content_yesterday)
             rating = diff["rating"]
             
-            prompt = [f"{user}님이\n", f"를 해결하셨으며, 점수가 {rating}점 올랐습니다."]
-            for rank, count in diff["solved"].items():
-                prompt.insert(1, f"{rank} 문제 {count}개\n")
-                
-            print(''.join(prompt))
-                
+            if diff["diff"]:
+                prompt = [f"{user}님이\n", f"를 해결하셨으며\n점수가 {content_today["rating"]}점에서 {content_yesterday["rating"]}점\n총 {rating}점 올랐습니다."]
+                for rank, count in diff["solved"].items():
+                    prompt.insert(1, f"{rank} 문제 {count}개\n")
+            else:
+                prompt = [f"{user}님이 아무 문제도 풀지 않으셨습니다."]    
             
-                
-                
-            
-            
-            
+            prompt.insert(0, "```")    
+            prompt.append("```")
+            prompt = ''.join(prompt)
             
             
-# save_user_file("jwt2719", send_api_with_query("/user/problem_stats", "jwt2719"))
-        
+            print(prompt)
+            message = {"content": prompt}
+            discord_url = open("webhook.txt", 'r').readline()
+            
+            print(requests.post(discord_url, data=message))
+            
+            
 
-main()
+if __name__ == "__main__":
+    main()            
