@@ -166,10 +166,9 @@ def main():
         path_today = os.path.abspath(f"data/{today}/{filename}")
         path_yesterday = os.path.abspath(f"data/{yesterday}/{filename}")
 
-        if not os.path.exists(path_today):
-            for user in users:
-                json_data = send_api_with_query("/user/problem_stats", user, "GET")
-                save_user_file(user, json_data)
+
+        json_data = send_api_with_query("/user/problem_stats", user, "GET")
+        save_user_file(user, json_data)
                 
         if not os.path.exists(path_yesterday):
             break
@@ -179,14 +178,13 @@ def main():
         content_yesterday = json.loads(read_file(path_yesterday, 'r'))
 
 
-        
         if content_yesterday is not None:
 
             diff = compare(content_today, content_yesterday)
             rating = diff["rating"]
             
             if diff["diff"]:
-                prompt = [f"{user}님이\n", f"를 해결하셨으며\n점수가 {content_today['rating']}점에서 {content_yesterday['rating']}점\n총 {rating}점 올랐습니다."]
+                prompt = [f"{user}님이\n", f"를 해결하셨으며\n점수가 {content_yesterday['rating']}점에서 {content_today['rating']}점\n총 {rating}점 올랐습니다."]
                 for rank, count in diff["solved"].items():
                     prompt.insert(1, f"{rank} 문제 {count}개\n")
             else:
